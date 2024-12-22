@@ -1,0 +1,35 @@
+[project]
+name = "sub-cache"
+version = "0.0.2"
+description = "Service for caching subscription files"
+authors = [
+    {name = "aetherrootr", email = "aether@aetherrootr.com"},
+]
+dependencies = ["requests>=2.32.3", "flask>=3.1.0", "types-requests>=2.32.0.20241016", "gunicorn>=23.0.0"]
+requires-python = ">=3.12"
+readme = "README.md"
+license = {text = "MIT"}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm.scripts]
+ruff_check = "ruff check app"
+mypy_check = "mypy app"
+app = "python app/app.py"
+build_release = "pdm pack -m app.server:main -o sub-cache.pyz --exe -c --pyc"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.build]
+includes = [
+    "app"
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14.0",
+    "ruff>=0.8.4",
+]
