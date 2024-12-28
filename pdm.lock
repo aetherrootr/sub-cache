@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:85b1fcf3b8b4e7bcf2ab92794cb7c8ace594d056fbe1b9d58f992d1c16a58e0e"
+content_hash = "sha256:fc1315b78faa2fdcf39db1e6b6509ba9409ef8f4c0a400dbc38ba0d10fd09c77"
 
 [[metadata.targets]]
 requires_python = ">=3.12"
@@ -78,7 +78,7 @@ name = "click"
 version = "8.1.8"
 requires_python = ">=3.7"
 summary = "Composable command line interface toolkit"
-groups = ["default"]
+groups = ["default", "dev"]
 dependencies = [
     "colorama; platform_system == \"Windows\"",
     "importlib-metadata; python_version < \"3.8\"",
@@ -93,7 +93,7 @@ name = "colorama"
 version = "0.4.6"
 requires_python = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 summary = "Cross-platform colored terminal text."
-groups = ["default"]
+groups = ["default", "dev"]
 marker = "platform_system == \"Windows\""
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
@@ -259,6 +259,17 @@ files = [
 ]
 
 [[package]]
+name = "pip"
+version = "24.3.1"
+requires_python = ">=3.8"
+summary = "The PyPA recommended tool for installing Python packages."
+groups = ["dev"]
+files = [
+    {file = "pip-24.3.1-py3-none-any.whl", hash = "sha256:3790624780082365f47549d032f3770eeb2b1e8bd1f7b2e02dace1afa361b4ed"},
+    {file = "pip-24.3.1.tar.gz", hash = "sha256:ebcb60557f2aefabc2e0f918751cd24ea0d56d8ec5445fe1807f1d2109660b99"},
+]
+
+[[package]]
 name = "requests"
 version = "2.32.3"
 requires_python = ">=3.8"
@@ -300,6 +311,34 @@ files = [
     {file = "ruff-0.8.4-py3-none-win_amd64.whl", hash = "sha256:f21a1143776f8656d7f364bd264a9d60f01b7f52243fbe90e7670c0dfe0cf65d"},
     {file = "ruff-0.8.4-py3-none-win_arm64.whl", hash = "sha256:9183dd615d8df50defa8b1d9a074053891ba39025cf5ae88e8bcb52edcc4bf08"},
     {file = "ruff-0.8.4.tar.gz", hash = "sha256:0d5f89f254836799af1615798caa5f80b7f935d7a670fad66c5007928e57ace8"},
+]
+
+[[package]]
+name = "setuptools"
+version = "75.6.0"
+requires_python = ">=3.9"
+summary = "Easily download, build, install, upgrade, and uninstall Python packages"
+groups = ["dev"]
+files = [
+    {file = "setuptools-75.6.0-py3-none-any.whl", hash = "sha256:ce74b49e8f7110f9bf04883b730f4765b774ef3ef28f722cce7c273d253aaf7d"},
+    {file = "setuptools-75.6.0.tar.gz", hash = "sha256:8199222558df7c86216af4f84c30e9b34a61d8ba19366cc914424cdbd28252f6"},
+]
+
+[[package]]
+name = "shiv"
+version = "1.0.8"
+requires_python = ">=3.6"
+summary = "A command line utility for building fully self contained Python zipapps."
+groups = ["dev"]
+dependencies = [
+    "click!=7.0,>=6.7",
+    "importlib-resources; python_version < \"3.7\"",
+    "pip>=9.0.3",
+    "setuptools",
+]
+files = [
+    {file = "shiv-1.0.8-py2.py3-none-any.whl", hash = "sha256:a60e4b05a2d2f8b820d567b1d89ee59af731759771c32c282d03c4ceae6aba24"},
+    {file = "shiv-1.0.8.tar.gz", hash = "sha256:2a68d69e98ce81cb5b8fdafbfc1e27efa93e6d89ca14bfae33482e4176f561d6"},
 ]
 
 [[package]]
