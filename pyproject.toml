@@ -17,8 +17,8 @@ build-backend = "pdm.backend"
 [tool.pdm.scripts]
 ruff_check = "ruff check app"
 mypy_check = "mypy app"
-app = "python app/app.py"
-build_release = "pdm pack -m app.server:main -o sub-cache.pyz --exe -c --pyc"
+app = "python app/server.py"
+build_release = "shiv -e app.server.main -o sub-cache.pyz --reproducible --compressed --compile-pyc ."
 
 [tool.pdm]
 distribution = true
@@ -32,4 +32,5 @@ includes = [
 dev = [
     "mypy>=1.14.0",
     "ruff>=0.8.4",
+    "shiv>=1.0.8",
 ]
