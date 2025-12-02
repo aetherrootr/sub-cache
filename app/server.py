@@ -11,8 +11,14 @@ from flask import Flask, render_template_string, request, send_file
 from app.gunicorn_app import GunicornApp
 
 SUB_URL_FILE = Path("/config/sub_url.txt")
-FETCH_SUB_INTERVAL = int(os.getenv("FETCH_INTERVAL", 600))
+FETCH_SUB_INTERVAL = int(os.getenv("FETCH_INTERVAL", 1800))
 CACHE_FILE = Path("/work/cached_content.txt")
+HEADERS = {
+    "User-Agent": "clash.meta/1.18.0",
+    "Accept": "*/*",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
+}
 
 app = Flask(__name__)
 
@@ -41,7 +47,7 @@ def fetch_content():
             logging.error(f"The subscription link {sub_url} you set is not a valid URL")
             return
 
-        response = requests.get(sub_url, timeout=10)
+        response = requests.get(sub_url, headers=HEADERS, timeout=10)
         response.raise_for_status()
         CACHE_FILE.write_bytes(response.content)
         logging.error(f"Fetched content from {sub_url} and saved to {CACHE_FILE}")
