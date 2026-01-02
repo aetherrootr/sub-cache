@@ -43,6 +43,7 @@ import {
   updateSub,
   deleteSub,
   refreshSubCache,
+  getSubContent,
 } from "./api";
 
 type Toast = { severity: "success" | "error" | "info"; msg: string } | null;
@@ -104,6 +105,7 @@ export default function App() {
 
   // refreshing state
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
+  const [loadingContent, setLoadingContent] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -144,7 +146,7 @@ export default function App() {
     setOpen(true);
   }
 
-  function openEdit(r: SubscriptionSource) {
+  async function openEdit(r: SubscriptionSource) {
     setMode("edit");
     setEditing(r);
     setName(r.name);
@@ -152,6 +154,17 @@ export default function App() {
     setUrl(r.url ?? "");
     setContent("");
     setOpen(true);
+    if (r.type === "local") {
+      try {
+        setLoadingContent(true);
+        const text = await getSubContent(r.id);
+        setContent(text);
+      } catch (e: any) {
+        setToast({ severity: "error", msg: e.message || String(e) });
+      } finally {
+        setLoadingContent(false);
+      }
+    }
   }
 
   async function handleCopyLink(id: number) {
@@ -425,6 +438,8 @@ export default function App() {
                 multiline
                 minRows={8}
                 placeholder="Paste your Mihomo YAML here"
+                disabled={loadingContent}
+                helperText={loadingContent ? "Loading existing content..." : undefined}
               />
             )}
           </Stack>
