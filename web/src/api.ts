@@ -72,3 +72,13 @@ export async function refreshSubCache(id: number): Promise<{ message?: string }>
     body: JSON.stringify({}),
   });
 }
+
+export async function getSubContent(id: number): Promise<string> {
+  const res = await fetch(`/sub/${id}`, { method: "GET" });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `${res.status} ${res.statusText}`);
+  }
+  return await res.text();
+}
+
