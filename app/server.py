@@ -1,116 +1,47 @@
 import logging
-import os
-import time
-from pathlib import Path
 from threading import Thread
-from urllib.parse import urlparse
 
-import requests
-from flask import Flask, render_template_string, request, send_file
-
+from app.api.base import app
+from app.api.sub_api import sub_api
+from app.cronjob.periodic_fetch import periodic_fetch
 from app.gunicorn_app import GunicornApp
-
-SUB_URL_FILE = Path("/config/sub_url.txt")
-FETCH_SUB_INTERVAL = int(os.getenv("FETCH_INTERVAL", 1800))
-CACHE_FILE = Path("/work/cached_content.txt")
-HEADERS = {
-    "User-Agent": "clash.meta/1.18.0",
-    "Accept": "*/*",
-    "Accept-Encoding": "gzip, deflate",
-    "Connection": "keep-alive",
-}
-
-app = Flask(__name__)
+from app.model.base import Database
+from app.model.subscription import SubscriptionSource
+from app.utils.sub_utils import CACHE_FILE_DIR, DATABASE_DIR, DATABASE_URL, cache_remote_sub
 
 
-def read_file(filename, mode="r"):
-    with open(filename, mode) as f:
-        return f.read()
+def verify_cache_directory(database):
+    with database.session() as session:
+        sources = session.query(SubscriptionSource).all()
+        for sub in sources:
+            cache_file = CACHE_FILE_DIR / f"{sub.id}.yml"
+            if not cache_file.exists():
+                if sub.type == "remote" and sub.url:
+                    cache_remote_sub(sub.id, sub.url)
+                elif sub.type == "local":
+                    session.delete(sub)
 
-
-def write_file(filename, content):
-    Path(filename).write_text(content)
-
-
-def is_valid_url(url):
-    try:
-        result = urlparse(url)
-        return all([result.scheme, result.netloc])
-    except ValueError:
-        return False
-
-
-def fetch_content():
-    try:
-        sub_url = read_file(SUB_URL_FILE)
-        if not is_valid_url(sub_url):
-            logging.error(f"The subscription link {sub_url} you set is not a valid URL")
-            return
-
-        response = requests.get(sub_url, headers=HEADERS, timeout=10)
-        response.raise_for_status()
-        CACHE_FILE.write_bytes(response.content)
-        logging.error(f"Fetched content from {sub_url} and saved to {CACHE_FILE}")
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Failed to fetch content: {e}")
-
-
-@app.route("/")
-def serve_content():
-    return send_file(CACHE_FILE, as_attachment=False)
-
-
-@app.route("/update", methods=["GET", "POST"])
-def update_sub_url():
-    result = None
-    if request.method == "POST":
-        data = request.form.get("input_data")
-        if is_valid_url(data):
-            write_file(SUB_URL_FILE, data)
-            fetch_content()
-            result = "Update successful"
-        else:
-            result = "Update failed, the subscription link you set is not a valid URL."
-
-    current_sub_url = read_file(SUB_URL_FILE)
-    return render_template_string(
-        """
-        <!doctype html>
-        <title>Update sub url</title>
-        <h1>Current sub url is {{ current_sub_url }}<h1>
-        <h1>Enter new sub url:</h1>
-        <form method="post">
-            <input type="text" name="input_data">
-            <input type="submit" value="Submit">
-        </form>
-        {% if result %}
-        <h2>{{ result }}</h2>
-        {% endif %}
-    """,
-        result=result,
-        current_sub_url=current_sub_url,
-    )
-
-
-def periodic_fetch():
-    while True:
-        fetch_content()
-        time.sleep(FETCH_SUB_INTERVAL)
+        session.commit()
 
 
 def main():
     options = {
-        "bind": "0.0.0.0:8080",
-        "workers": "1",
-        "loglevel": "info",
+        'bind': '0.0.0.0:8080',
+        'workers': '1',
+        'loglevel': 'info',
     }
 
-    SUB_URL_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    SUB_URL_FILE.touch(exist_ok=True)
-    CACHE_FILE.touch(exist_ok=True)
+    CACHE_FILE_DIR.mkdir(parents=True, exist_ok=True)
+    DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 
-    fetch_thread = Thread(target=periodic_fetch)
+    app.register_blueprint(sub_api)
+    database = Database(DATABASE_URL)
+    database.init_db()
+    verify_cache_directory(database)
+    app.extensions['database'] = database
+    logging.error(f"static_folder = {app.static_folder}")
+
+    fetch_thread = Thread(target=periodic_fetch, args=(database,))
     fetch_thread.daemon = True
     fetch_thread.start()
 

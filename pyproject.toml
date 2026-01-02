@@ -5,7 +5,7 @@ description = "Service for caching subscription files"
 authors = [
     {name = "aetherrootr", email = "aether@aetherrootr.com"},
 ]
-dependencies = ["requests>=2.32.3", "flask>=3.1.0", "types-requests>=2.32.0.20241016", "gunicorn>=23.0.0"]
+dependencies = ["requests>=2.32.3", "flask>=3.1.0", "types-requests>=2.32.0.20241016", "gunicorn>=23.0.0", "sqlalchemy>=2.0.45", "filelock>=3.20.1"]
 requires-python = ">=3.12"
 readme = "README.md"
 license = {text = "MIT"}
