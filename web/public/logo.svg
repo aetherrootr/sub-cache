@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-label="Sub Cache">
+  <defs>
+    <style>
+      .s { stroke:#0b1220; stroke-width:5; stroke-linecap:round; stroke-linejoin:round; }
+    </style>
+  </defs>
+
+  <!-- C-shaped cache arrow -->
+  <path class="s" fill="none" d="M49 32a17 17 0 1 1-6-12"></path>
+  <path fill="#0b1220" d="M44 12l12 0-6 10z"></path>
+
+  <!-- database -->
+  <ellipse class="s" cx="28" cy="26" rx="14" ry="6" fill="#4aa3ff"></ellipse>
+  <path class="s" d="M14 26v20c0 3.4 6.3 6 14 6s14-2.6 14-6V26" fill="#4aa3ff"></path>
+  <ellipse class="s" cx="28" cy="46" rx="14" ry="6" fill="#4aa3ff"></ellipse>
+</svg>

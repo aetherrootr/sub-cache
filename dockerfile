@@ -1,10 +1,12 @@
 FROM python:3.13-slim
 
-RUN mkdir -p /config /work /app
+ENV ENV=prod
+RUN mkdir -p /work /app
 
 WORKDIR /app
 
 COPY ./sub-cache.pyz /app/sub-cache.pyz
+COPY ./dist /app/dist
 
 RUN chmod +x /app/sub-cache.pyz
 
