@@ -52,7 +52,7 @@ import {
 } from "./api";
 
 type Toast = { severity: "success" | "error" | "info"; msg: string } | null;
-type ExpandedContent = { id: number | null; content: string; loading: boolean };
+type ExpandedContent = { subscriptionKey: string | null; content: string; loading: boolean };
 
 const SUB_TYPES: SubType[] = ["remote", "local"];
 
@@ -67,9 +67,13 @@ function SubTypeChip({ t }: { t: SubType }) {
   );
 }
 
-function buildSubLink(id: number) {
+function buildSubLink(subscriptionKey: string) {
   // 复制“绝对链接”，方便粘贴到 mihomo/clash/subconverter 任意地方
-  return `${window.location.origin}/sub/${id}`;
+  return `${window.location.origin}/sub/${subscriptionKey}`;
+}
+
+function formatSubscriptionKey(subscriptionKey: string) {
+  return `${subscriptionKey.slice(0, 6)}...${subscriptionKey.slice(-4)}`;
 }
 
 async function copyText(text: string) {
@@ -184,10 +188,10 @@ export default function App() {
   const [content, setContent] = useState("");
 
   // refreshing state
-  const [refreshingId, setRefreshingId] = useState<number | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [loadingContent, setLoadingContent] = useState(false);
   const [expandedContent, setExpandedContent] = useState<ExpandedContent>({
-    id: null,
+    subscriptionKey: null,
     content: "",
     loading: false,
   });
@@ -198,7 +202,7 @@ export default function App() {
     return rows.filter((r) => {
       return (
         r.name.toLowerCase().includes(q) ||
-        String(r.id).includes(q) ||
+        r.subscription_key.toLowerCase().includes(q) ||
         (r.url ?? "").toLowerCase().includes(q) ||
         r.type.toLowerCase().includes(q)
       );
@@ -242,7 +246,7 @@ export default function App() {
     if (r.type === "local") {
       try {
         setLoadingContent(true);
-        const text = await getSubContent(r.id);
+        const text = await getSubContent(r.subscription_key);
         setContent(text);
       } catch (e: unknown) {
         setToast({ severity: "error", msg: getErrorMessage(e) });
@@ -252,8 +256,8 @@ export default function App() {
     }
   }
 
-  async function handleCopyLink(id: number) {
-    const link = buildSubLink(id);
+  async function handleCopyLink(subscriptionKey: string) {
+    const link = buildSubLink(subscriptionKey);
     const ok = await copyText(link);
     setToast({
       severity: ok ? "success" : "error",
@@ -274,7 +278,7 @@ export default function App() {
         else payload.content = content;
 
         const res = await addSub(payload);
-        setToast({ severity: "success", msg: `Added (id=${res.id})` });
+        setToast({ severity: "success", msg: `Added (${formatSubscriptionKey(res.subscription_key)})` });
       } else {
         if (!editing) throw new Error("No editing item");
         if (type === "remote" && !url.trim()) throw new Error("URL is required");
@@ -285,7 +289,7 @@ export default function App() {
         if (type === "remote") payload.url = url.trim();
         else payload.content = content;
 
-        await updateSub(editing.id, payload);
+        await updateSub(editing.subscription_key, payload);
         setToast({ severity: "success", msg: "Updated" });
       }
 
@@ -297,11 +301,11 @@ export default function App() {
   }
 
   async function handleDelete(r: SubscriptionSource) {
-    const ok = confirm(`Delete subscription #${r.id} (${r.name}) ?`);
+    const ok = confirm(`Delete subscription ${formatSubscriptionKey(r.subscription_key)} (${r.name}) ?`);
     if (!ok) return;
 
     try {
-      await deleteSub(r.id);
+      await deleteSub(r.subscription_key);
       setToast({ severity: "success", msg: "Deleted" });
       await refresh();
     } catch (e: unknown) {
@@ -316,8 +320,8 @@ export default function App() {
     }
 
     try {
-      setRefreshingId(r.id);
-      await refreshSubCache(r.id);
+      setRefreshingId(r.subscription_key);
+      await refreshSubCache(r.subscription_key);
       setToast({ severity: "success", msg: "Cache refreshed" });
       await refresh();
     } catch (e: unknown) {
@@ -328,20 +332,24 @@ export default function App() {
   }
 
   async function handleToggleContent(r: SubscriptionSource) {
-    if (expandedContent.id === r.id) {
-      setExpandedContent({ id: null, content: "", loading: false });
+    if (expandedContent.subscriptionKey === r.subscription_key) {
+      setExpandedContent({ subscriptionKey: null, content: "", loading: false });
       return;
     }
 
-    setExpandedContent({ id: r.id, content: "", loading: true });
+    setExpandedContent({ subscriptionKey: r.subscription_key, content: "", loading: true });
     try {
-      const text = await getSubContent(r.id);
+      const text = await getSubContent(r.subscription_key);
       setExpandedContent((current) =>
-        current.id === r.id ? { id: r.id, content: text, loading: false } : current
+        current.subscriptionKey === r.subscription_key
+          ? { subscriptionKey: r.subscription_key, content: text, loading: false }
+          : current
       );
     } catch (e: unknown) {
       setExpandedContent((current) =>
-        current.id === r.id ? { id: null, content: "", loading: false } : current
+        current.subscriptionKey === r.subscription_key
+          ? { subscriptionKey: null, content: "", loading: false }
+          : current
       );
       setToast({ severity: "error", msg: getErrorMessage(e) });
     }
@@ -383,7 +391,7 @@ export default function App() {
           <Stack spacing={1}>
             {filtered.map((r) => (
               <Paper
-                key={r.id}
+                key={r.subscription_key}
                 variant="outlined"
                 sx={{
                   p: 1.5,
@@ -395,14 +403,35 @@ export default function App() {
                     display: "flex",
                     gap: 1.5,
                     flexDirection: { xs: "column", sm: "row" },
-                    alignItems: { xs: "stretch", sm: "center" },
+                    alignItems: { xs: "flex-start", sm: "center" },
                   }}
                 >
-                  <Typography sx={{ fontWeight: 600, width: { xs: "auto", sm: 70 } }}>
-                    #{r.id}
-                  </Typography>
+                  <Stack
+                    spacing={1}
+                    sx={{
+                      width: { xs: "100%", sm: 160 },
+                      flexShrink: 0,
+                      alignItems: { xs: "flex-start", sm: "center" },
+                    }}
+                  >
+                    <Tooltip title={r.subscription_key}>
+                      <Typography
+                        sx={{
+                          fontWeight: 700,
+                          maxWidth: "100%",
+                          fontFamily:
+                            'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+                          fontSize: 13,
+                          letterSpacing: 0.2,
+                        }}
+                        noWrap
+                      >
+                        {formatSubscriptionKey(r.subscription_key)}
+                      </Typography>
+                    </Tooltip>
 
-                  <SubTypeChip t={r.type} />
+                    <SubTypeChip t={r.type} />
+                  </Stack>
 
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography sx={{ fontWeight: 600 }} noWrap={!isMobile}>
@@ -412,10 +441,10 @@ export default function App() {
                     <Box
                       sx={{
                         display: "flex",
-                        alignItems: "center",
+                        alignItems: { xs: "flex-start", sm: "center" },
                         gap: 1,
                         mt: 0.5,
-                        flexWrap: { xs: "wrap", sm: "nowrap" },
+                        flexDirection: { xs: "column", sm: "row" },
                         minWidth: 0,
                       }}
                     >
@@ -430,9 +459,18 @@ export default function App() {
 
                       <Chip
                         size="small"
-                        label={`/sub/${r.id}`}
+                        label={`/sub/${formatSubscriptionKey(r.subscription_key)}`}
                         variant="outlined"
-                        sx={{ flexShrink: 0 }}
+                        sx={{
+                          flexShrink: 0,
+                          maxWidth: { xs: "100%", sm: 190 },
+                          alignSelf: { xs: "flex-start", sm: "center" },
+                          "& .MuiChip-label": {
+                            display: "block",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          },
+                        }}
                       />
                     </Box>
 
@@ -472,15 +510,21 @@ export default function App() {
                       alignItems: "center",
                     }}
                   >
-                    <Tooltip title={expandedContent.id === r.id ? "Collapse content" : "Expand content"}>
+                    <Tooltip
+                      title={
+                        expandedContent.subscriptionKey === r.subscription_key
+                          ? "Collapse content"
+                          : "Expand content"
+                      }
+                    >
                       <IconButton
                         size={isMobile ? "small" : "medium"}
                         onClick={() => handleToggleContent(r)}
-                        disabled={expandedContent.loading && expandedContent.id === r.id}
+                        disabled={expandedContent.loading && expandedContent.subscriptionKey === r.subscription_key}
                       >
-                        {expandedContent.loading && expandedContent.id === r.id ? (
+                        {expandedContent.loading && expandedContent.subscriptionKey === r.subscription_key ? (
                           <CircularProgress size={isMobile ? 16 : 20} />
-                        ) : expandedContent.id === r.id ? (
+                        ) : expandedContent.subscriptionKey === r.subscription_key ? (
                           <ExpandLessIcon fontSize={isMobile ? "small" : "medium"} />
                         ) : (
                           <ExpandMoreIcon fontSize={isMobile ? "small" : "medium"} />
@@ -489,7 +533,10 @@ export default function App() {
                     </Tooltip>
 
                     <Tooltip title="Copy subscription link">
-                      <IconButton size={isMobile ? "small" : "medium"} onClick={() => handleCopyLink(r.id)}>
+                      <IconButton
+                        size={isMobile ? "small" : "medium"}
+                        onClick={() => handleCopyLink(r.subscription_key)}
+                      >
                         <ContentCopyIcon fontSize={isMobile ? "small" : "medium"} />
                       </IconButton>
                     </Tooltip>
@@ -505,9 +552,9 @@ export default function App() {
                         <IconButton
                           size={isMobile ? "small" : "medium"}
                           onClick={() => handleRefreshCache(r)}
-                          disabled={r.type !== "remote" || refreshingId === r.id}
+                          disabled={r.type !== "remote" || refreshingId === r.subscription_key}
                         >
-                          {refreshingId === r.id ? (
+                          {refreshingId === r.subscription_key ? (
                             <CircularProgress size={isMobile ? 16 : 20} />
                           ) : (
                             <SyncIcon fontSize={isMobile ? "small" : "medium"} />
@@ -528,7 +575,7 @@ export default function App() {
                   </Stack>
                 </Box>
 
-                {expandedContent.id === r.id && !expandedContent.loading && (
+                {expandedContent.subscriptionKey === r.subscription_key && !expandedContent.loading && (
                   <Box
                     component="pre"
                     sx={{

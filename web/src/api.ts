@@ -2,7 +2,7 @@ export type SubType = "remote" | "local";
 export type FetchStatus = "success" | "failed" | null;
 
 export interface SubscriptionSource {
-  id: number;
+  subscription_key: string;
   name: string;
   type: SubType;
   url: string | null;
@@ -52,40 +52,42 @@ export async function listSubs(): Promise<SubscriptionSource[]> {
   return data.sub_list ?? [];
 }
 
-export async function addSub(payload: AddSubPayload): Promise<{ id: number; message?: string }> {
-  return httpJson<{ id: number; message?: string }>("/sub/add", {
+export async function addSub(
+  payload: AddSubPayload
+): Promise<{ subscription_key: string; message?: string }> {
+  return httpJson<{ subscription_key: string; message?: string }>("/sub/add", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
 export async function updateSub(
-  id: number,
+  subscriptionKey: string,
   payload: UpdateSubPayload
 ): Promise<{ message?: string }> {
-  return httpJson<{ message?: string }>(`/sub/update/${id}`, {
+  return httpJson<{ message?: string }>(`/sub/update/${encodeURIComponent(subscriptionKey)}`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function deleteSub(id: number): Promise<void> {
-  const res = await fetch(`/sub/delete/${id}`, { method: "DELETE" });
+export async function deleteSub(subscriptionKey: string): Promise<void> {
+  const res = await fetch(`/sub/delete/${encodeURIComponent(subscriptionKey)}`, { method: "DELETE" });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `${res.status} ${res.statusText}`);
   }
 }
 
-export async function refreshSubCache(id: number): Promise<{ message?: string }> {
-  return httpJson<{ message?: string }>(`/sub/refresh/${id}`, {
+export async function refreshSubCache(subscriptionKey: string): Promise<{ message?: string }> {
+  return httpJson<{ message?: string }>(`/sub/refresh/${encodeURIComponent(subscriptionKey)}`, {
     method: "POST",
     body: JSON.stringify({}),
   });
 }
 
-export async function getSubContent(id: number): Promise<string> {
-  const res = await fetch(`/sub/${id}`, { method: "GET" });
+export async function getSubContent(subscriptionKey: string): Promise<string> {
+  const res = await fetch(`/sub/${encodeURIComponent(subscriptionKey)}`, { method: "GET" });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(text || `${res.status} ${res.statusText}`);

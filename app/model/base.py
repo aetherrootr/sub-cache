@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from secrets import token_urlsafe
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
@@ -34,6 +35,36 @@ class Database:
         if "last_fetch_status" not in columns:
             with self.engine.begin() as conn:
                 conn.execute(text("ALTER TABLE subscription_sources ADD COLUMN last_fetch_status VARCHAR"))
+        if "subscription_key" not in columns:
+            with self.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE subscription_sources ADD COLUMN subscription_key VARCHAR"))
+
+        with self.engine.begin() as conn:
+            existing_keys = {
+                row[0]
+                for row in conn.execute(
+                    text("SELECT subscription_key FROM subscription_sources WHERE subscription_key IS NOT NULL"),
+                )
+            }
+            rows_without_keys = list(conn.execute(
+                text("SELECT id FROM subscription_sources WHERE subscription_key IS NULL"),
+            ))
+            for row in rows_without_keys:
+                subscription_key = token_urlsafe(32)
+                while subscription_key in existing_keys:
+                    subscription_key = token_urlsafe(32)
+                existing_keys.add(subscription_key)
+                conn.execute(
+                    text("UPDATE subscription_sources SET subscription_key = :key WHERE id = :id"),
+                    {"key": subscription_key, "id": row[0]},
+                )
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS "
+                    "ix_subscription_sources_subscription_key "
+                    "ON subscription_sources(subscription_key)",
+                ),
+            )
 
     @contextmanager
     def session(self):
