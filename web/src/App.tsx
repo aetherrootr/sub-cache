@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AppBar,
   Toolbar,
@@ -29,6 +29,8 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SyncIcon from "@mui/icons-material/Sync";
@@ -50,6 +52,7 @@ import {
 } from "./api";
 
 type Toast = { severity: "success" | "error" | "info"; msg: string } | null;
+type ExpandedContent = { id: number | null; content: string; loading: boolean };
 
 const SUB_TYPES: SubType[] = ["remote", "local"];
 
@@ -116,6 +119,52 @@ function getFetchStatusMeta(status: FetchStatus) {
   return { label: "Unknown", color: "text.disabled" };
 }
 
+function formatSubContent(content: string) {
+  try {
+    return JSON.stringify(JSON.parse(content), null, 2);
+  } catch {
+    return content;
+  }
+}
+
+function highlightLine(line: string) {
+  const parts: ReactNode[] = [];
+  const tokenPattern = /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#.*$|\b(?:true|false|null)\b|-?\b\d+(?:\.\d+)?\b|^[\s-]*[\w.-]+(?=\s*:))/g;
+  let lastIndex = 0;
+
+  for (const match of line.matchAll(tokenPattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    if (index > lastIndex) parts.push(line.slice(lastIndex, index));
+
+    let color = "#d19a66";
+    if (token.startsWith("#")) color = "#7f848e";
+    else if (token.startsWith('"') || token.startsWith("'")) color = "#98c379";
+    else if (/^[\s-]*[\w.-]+$/.test(token)) color = "#61afef";
+    else if (/\b(?:true|false|null)\b/.test(token)) color = "#c678dd";
+
+    parts.push(
+      <Box component="span" key={`${index}-${token}`} sx={{ color }}>
+        {token}
+      </Box>
+    );
+    lastIndex = index + token.length;
+  }
+
+  if (lastIndex < line.length) parts.push(line.slice(lastIndex));
+  return parts;
+}
+
+function HighlightedSubContent({ content }: { content: string }) {
+  return formatSubContent(content)
+    .split("\n")
+    .map((line, index) => (
+      <Box component="span" key={index} sx={{ display: "block", minHeight: "1.5em" }}>
+        {highlightLine(line)}
+      </Box>
+    ));
+}
+
 export default function App() {
   const [rows, setRows] = useState<SubscriptionSource[]>([]);
   const [loading, setLoading] = useState(false);
@@ -137,6 +186,11 @@ export default function App() {
   // refreshing state
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
   const [loadingContent, setLoadingContent] = useState(false);
+  const [expandedContent, setExpandedContent] = useState<ExpandedContent>({
+    id: null,
+    content: "",
+    loading: false,
+  });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -273,6 +327,26 @@ export default function App() {
     }
   }
 
+  async function handleToggleContent(r: SubscriptionSource) {
+    if (expandedContent.id === r.id) {
+      setExpandedContent({ id: null, content: "", loading: false });
+      return;
+    }
+
+    setExpandedContent({ id: r.id, content: "", loading: true });
+    try {
+      const text = await getSubContent(r.id);
+      setExpandedContent((current) =>
+        current.id === r.id ? { id: r.id, content: text, loading: false } : current
+      );
+    } catch (e: unknown) {
+      setExpandedContent((current) =>
+        current.id === r.id ? { id: null, content: "", loading: false } : current
+      );
+      setToast({ severity: "error", msg: getErrorMessage(e) });
+    }
+  }
+
   // For mobile devices
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -313,125 +387,169 @@ export default function App() {
                 variant="outlined"
                 sx={{
                   p: 1.5,
-                  display: "flex",
-                  gap: 1.5,
-                  flexDirection: { xs: "column", sm: "row" },
-                  alignItems: { xs: "stretch", sm: "center" },
                   overflow: "hidden",
                 }}
               >
-                <Typography sx={{ fontWeight: 600, width: { xs: "auto", sm: 70 } }}>
-                  #{r.id}
-                </Typography>
-
-                <SubTypeChip t={r.type} />
-
-                <Box sx={{ flex: 1, minWidth: 0}}>
-                  <Typography sx={{ fontWeight: 600 }} noWrap={!isMobile}>
-                    {r.name}
-                  </Typography>
-
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      mt: 0.5,
-                      flexWrap: { xs: "wrap", sm: "nowrap" },
-                      minWidth: 0,
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ minWidth: 0, flex: 1 }}
-                      noWrap={!isMobile}
-                    >
-                      {r.type === "remote" ? r.url : "(local content)"}
-                    </Typography>
-
-                    <Chip
-                      size="small"
-                      label={`/sub/${r.id}`}
-                      variant="outlined"
-                      sx={{ flexShrink: 0 }}
-                    />
-                  </Box>
-
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 0.75,
-                      mt: 0.5,
-                    }}
-                  >
-                    <Box
-                      aria-label={`Last fetch status: ${getFetchStatusMeta(r.last_fetch_status).label}`}
-                      sx={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        bgcolor: getFetchStatusMeta(r.last_fetch_status).color,
-                        flexShrink: 0,
-                      }}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      Last fetch: {getFetchStatusMeta(r.last_fetch_status).label} · Last success:{" "}
-                      {formatFetchTime(r.last_successful_fetch_at)}
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Stack
-                  direction="row"
-                  spacing={isMobile ? 0.5 : 1}
+                <Box
                   sx={{
-                    justifyContent: { xs: "flex-end", sm: "flex-start" },
-                    flexWrap: { xs: "wrap", sm: "nowrap" },
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                    alignItems: "center",
+                    display: "flex",
+                    gap: 1.5,
+                    flexDirection: { xs: "column", sm: "row" },
+                    alignItems: { xs: "stretch", sm: "center" },
                   }}
                 >
-                  <Tooltip title="Copy subscription link">
-                    <IconButton size={isMobile ? "small" : "medium"} onClick={() => handleCopyLink(r.id)}>
-                      <ContentCopyIcon fontSize={isMobile ? "small" : "medium"} />
-                    </IconButton>
-                  </Tooltip>
+                  <Typography sx={{ fontWeight: 600, width: { xs: "auto", sm: 70 } }}>
+                    #{r.id}
+                  </Typography>
 
-                  <Tooltip title="Edit">
-                    <IconButton size={isMobile ? "small" : "medium"} onClick={() => openEdit(r)}>
-                      <EditIcon fontSize={isMobile ? "small" : "medium"} />
-                    </IconButton>
-                  </Tooltip>
+                  <SubTypeChip t={r.type} />
 
-                  <Tooltip title={r.type === "remote" ? "Refresh cache" : "Only remote can refresh"}>
-                    <span>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 600 }} noWrap={!isMobile}>
+                      {r.name}
+                    </Typography>
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mt: 0.5,
+                        flexWrap: { xs: "wrap", sm: "nowrap" },
+                        minWidth: 0,
+                      }}
+                    >
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ minWidth: 0, flex: 1 }}
+                        noWrap={!isMobile}
+                      >
+                        {r.type === "remote" ? r.url : "(local content)"}
+                      </Typography>
+
+                      <Chip
+                        size="small"
+                        label={`/sub/${r.id}`}
+                        variant="outlined"
+                        sx={{ flexShrink: 0 }}
+                      />
+                    </Box>
+
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.75,
+                        mt: 0.5,
+                      }}
+                    >
+                      <Box
+                        aria-label={`Last fetch status: ${getFetchStatusMeta(r.last_fetch_status).label}`}
+                        sx={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          bgcolor: getFetchStatusMeta(r.last_fetch_status).color,
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Typography variant="caption" color="text.secondary">
+                        Last fetch: {getFetchStatusMeta(r.last_fetch_status).label} · Last success:{" "}
+                        {formatFetchTime(r.last_successful_fetch_at)}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <Stack
+                    direction="row"
+                    spacing={isMobile ? 0.5 : 1}
+                    sx={{
+                      justifyContent: { xs: "flex-end", sm: "flex-start" },
+                      flexWrap: { xs: "wrap", sm: "nowrap" },
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Tooltip title={expandedContent.id === r.id ? "Collapse content" : "Expand content"}>
                       <IconButton
                         size={isMobile ? "small" : "medium"}
-                        onClick={() => handleRefreshCache(r)}
-                        disabled={r.type !== "remote" || refreshingId === r.id}
+                        onClick={() => handleToggleContent(r)}
+                        disabled={expandedContent.loading && expandedContent.id === r.id}
                       >
-                        {refreshingId === r.id ? (
+                        {expandedContent.loading && expandedContent.id === r.id ? (
                           <CircularProgress size={isMobile ? 16 : 20} />
+                        ) : expandedContent.id === r.id ? (
+                          <ExpandLessIcon fontSize={isMobile ? "small" : "medium"} />
                         ) : (
-                          <SyncIcon fontSize={isMobile ? "small" : "medium"} />
+                          <ExpandMoreIcon fontSize={isMobile ? "small" : "medium"} />
                         )}
                       </IconButton>
-                    </span>
-                  </Tooltip>
+                    </Tooltip>
 
-                  <Tooltip title="Delete">
-                    <IconButton
-                      size={isMobile ? "small" : "medium"}
-                      onClick={() => handleDelete(r)}
-                      color="error"
-                    >
-                      <DeleteIcon fontSize={isMobile ? "small" : "medium"} />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
+                    <Tooltip title="Copy subscription link">
+                      <IconButton size={isMobile ? "small" : "medium"} onClick={() => handleCopyLink(r.id)}>
+                        <ContentCopyIcon fontSize={isMobile ? "small" : "medium"} />
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title="Edit">
+                      <IconButton size={isMobile ? "small" : "medium"} onClick={() => openEdit(r)}>
+                        <EditIcon fontSize={isMobile ? "small" : "medium"} />
+                      </IconButton>
+                    </Tooltip>
+
+                    <Tooltip title={r.type === "remote" ? "Refresh cache" : "Only remote can refresh"}>
+                      <span>
+                        <IconButton
+                          size={isMobile ? "small" : "medium"}
+                          onClick={() => handleRefreshCache(r)}
+                          disabled={r.type !== "remote" || refreshingId === r.id}
+                        >
+                          {refreshingId === r.id ? (
+                            <CircularProgress size={isMobile ? 16 : 20} />
+                          ) : (
+                            <SyncIcon fontSize={isMobile ? "small" : "medium"} />
+                          )}
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size={isMobile ? "small" : "medium"}
+                        onClick={() => handleDelete(r)}
+                        color="error"
+                      >
+                        <DeleteIcon fontSize={isMobile ? "small" : "medium"} />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </Box>
+
+                {expandedContent.id === r.id && !expandedContent.loading && (
+                  <Box
+                    component="pre"
+                    sx={{
+                      mt: 1.5,
+                      mb: 0,
+                      p: 1.5,
+                      maxHeight: "15em",
+                      overflow: "auto",
+                      bgcolor: "#1f2430",
+                      color: "#abb2bf",
+                      borderRadius: 1,
+                      fontFamily:
+                        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                      whiteSpace: "pre",
+                    }}
+                  >
+                    <HighlightedSubContent content={expandedContent.content} />
+                  </Box>
+                )}
               </Paper>
             ))}
 
