@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import (
     DateTime,
     Integer,
@@ -20,11 +22,12 @@ class SubscriptionSource(Base):
     type: Mapped[str] = mapped_column(String, nullable=False)
     url: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    created_at: Mapped[str] = mapped_column(
+    created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.datetime("now"),
     )
-    updated_at: Mapped[str] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.datetime("now"),
         onupdate=func.datetime("now"),
     )
+    last_successful_fetch_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

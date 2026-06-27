@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import datetime, timezone
 
 from app.model.subscription import SubscriptionSource
 from app.utils.sub_utils import cache_remote_sub
@@ -13,6 +14,7 @@ def periodic_fetch(database):
             source = session.query(SubscriptionSource).all()
             for sub in source:
                 if sub.type == "remote" and sub.url:
-                    cache_remote_sub(sub.id, sub.url)
+                    if cache_remote_sub(sub.id, sub.url):
+                        sub.last_successful_fetch_at = datetime.now(timezone.utc)
 
         time.sleep(FETCH_SUB_INTERVAL)

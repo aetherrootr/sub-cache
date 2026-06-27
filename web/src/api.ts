@@ -7,6 +7,20 @@ export interface SubscriptionSource {
   url: string | null;
   created_at?: string;
   updated_at?: string;
+  last_successful_fetch_at: string | null;
+}
+
+export interface AddSubPayload {
+  name: string;
+  type: SubType;
+  url?: string;
+  content?: string;
+}
+
+export interface UpdateSubPayload {
+  type: SubType;
+  url?: string;
+  content?: string;
 }
 
 async function httpJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -36,12 +50,7 @@ export async function listSubs(): Promise<SubscriptionSource[]> {
   return data.sub_list ?? [];
 }
 
-export async function addSub(payload: {
-  name: string;
-  type: SubType;
-  url?: string;
-  content?: string;
-}): Promise<{ id: number; message?: string }> {
+export async function addSub(payload: AddSubPayload): Promise<{ id: number; message?: string }> {
   return httpJson<{ id: number; message?: string }>("/sub/add", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -50,7 +59,7 @@ export async function addSub(payload: {
 
 export async function updateSub(
   id: number,
-  payload: { type: SubType; url?: string; content?: string }
+  payload: UpdateSubPayload
 ): Promise<{ message?: string }> {
   return httpJson<{ message?: string }>(`/sub/update/${id}`, {
     method: "POST",
@@ -81,4 +90,3 @@ export async function getSubContent(id: number): Promise<string> {
   }
   return await res.text();
 }
-

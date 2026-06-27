@@ -17,7 +17,7 @@ build-backend = "pdm.backend"
 [tool.pdm.scripts]
 ruff_check = "ruff check app"
 mypy_check = "mypy app"
-app = "python app/server.py"
+app = "python -m app.server"
 build_release = "shiv -e app.server.main -o sub-cache.pyz --reproducible --compressed --compile-pyc ."
 
 [tool.pdm]

@@ -37,6 +37,8 @@ import { useTheme } from "@mui/material/styles";
 
 import {
   type SubscriptionSource,
+  type AddSubPayload,
+  type UpdateSubPayload,
   type SubType,
   listSubs,
   addSub,
@@ -85,6 +87,22 @@ async function copyText(text: string) {
   }
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function formatFetchTime(value: string | null) {
+  if (!value) return "Never";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "medium",
+  });
+}
+
 export default function App() {
   const [rows, setRows] = useState<SubscriptionSource[]>([]);
   const [loading, setLoading] = useState(false);
@@ -125,8 +143,8 @@ export default function App() {
     try {
       const data = await listSubs();
       setRows(data);
-    } catch (e: any) {
-      setToast({ severity: "error", msg: e.message || String(e) });
+    } catch (e: unknown) {
+      setToast({ severity: "error", msg: getErrorMessage(e) });
     } finally {
       setLoading(false);
     }
@@ -159,8 +177,8 @@ export default function App() {
         setLoadingContent(true);
         const text = await getSubContent(r.id);
         setContent(text);
-      } catch (e: any) {
-        setToast({ severity: "error", msg: e.message || String(e) });
+      } catch (e: unknown) {
+        setToast({ severity: "error", msg: getErrorMessage(e) });
       } finally {
         setLoadingContent(false);
       }
@@ -184,7 +202,7 @@ export default function App() {
         if (type === "local" && !content.trim())
           throw new Error("Content is required");
 
-        const payload: any = { name: name.trim(), type };
+        const payload: AddSubPayload = { name: name.trim(), type };
         if (type === "remote") payload.url = url.trim();
         else payload.content = content;
 
@@ -196,7 +214,7 @@ export default function App() {
         if (type === "local" && !content.trim())
           throw new Error("Content is required");
 
-        const payload: any = { type };
+        const payload: UpdateSubPayload = { type };
         if (type === "remote") payload.url = url.trim();
         else payload.content = content;
 
@@ -206,8 +224,8 @@ export default function App() {
 
       setOpen(false);
       await refresh();
-    } catch (e: any) {
-      setToast({ severity: "error", msg: e.message || String(e) });
+    } catch (e: unknown) {
+      setToast({ severity: "error", msg: getErrorMessage(e) });
     }
   }
 
@@ -219,8 +237,8 @@ export default function App() {
       await deleteSub(r.id);
       setToast({ severity: "success", msg: "Deleted" });
       await refresh();
-    } catch (e: any) {
-      setToast({ severity: "error", msg: e.message || String(e) });
+    } catch (e: unknown) {
+      setToast({ severity: "error", msg: getErrorMessage(e) });
     }
   }
 
@@ -235,8 +253,8 @@ export default function App() {
       await refreshSubCache(r.id);
       setToast({ severity: "success", msg: "Cache refreshed" });
       await refresh();
-    } catch (e: any) {
-      setToast({ severity: "error", msg: e.message || String(e) });
+    } catch (e: unknown) {
+      setToast({ severity: "error", msg: getErrorMessage(e) });
     } finally {
       setRefreshingId(null);
     }
@@ -326,6 +344,10 @@ export default function App() {
                       sx={{ flexShrink: 0 }}
                     />
                   </Box>
+
+                  <Typography variant="caption" color="text.secondary">
+                    Last successful fetch: {formatFetchTime(r.last_successful_fetch_at)}
+                  </Typography>
                 </Box>
 
                 <Stack

@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
@@ -23,6 +23,14 @@ class Database:
 
     def init_db(self):
         Base.metadata.create_all(self.engine)
+        self.migrate_db()
+
+    def migrate_db(self):
+        inspector = inspect(self.engine)
+        columns = {column["name"] for column in inspector.get_columns("subscription_sources")}
+        if "last_successful_fetch_at" not in columns:
+            with self.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE subscription_sources ADD COLUMN last_successful_fetch_at DATETIME"))
 
     @contextmanager
     def session(self):

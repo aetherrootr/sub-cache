@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from filelock import FileLock
 from flask import Blueprint, request, send_file, make_response
 
@@ -8,6 +10,19 @@ from app.utils.utils import get_database
 sub_api = Blueprint('sub', __name__, url_prefix='/sub')
 
 SUB_TYPE = ['remote', 'local']
+
+
+def mark_successful_fetch(session, source: SubscriptionSource):
+    source.last_successful_fetch_at = datetime.now(timezone.utc)
+
+
+def serialize_datetime(value):
+    if value is None:
+        return None
+
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
 
 
 @sub_api.route('/<int:sub_id>', methods=['GET'])
@@ -21,8 +36,13 @@ def get_subscription(sub_id):
 
     cache_file = CACHE_FILE_DIR / f'{sub_id}.yml'
     cache_file_lock = CACHE_FILE_DIR / f'{sub_id}.lock'
-    if not cache_file.exists() and not cache_remote_sub(sub_id, url):
-        return {'error': 'Can not get subscription file'}, 500
+    if not cache_file.exists():
+        if not url or not cache_remote_sub(sub_id, url):
+            return {'error': 'Can not get subscription file'}, 500
+        with db.session() as session:
+            source = session.get(SubscriptionSource, sub_id)
+            if source:
+                mark_successful_fetch(session, source)
 
     with FileLock(cache_file_lock, timeout=5):
         resp = make_response(
@@ -55,6 +75,7 @@ def list_subscriptions():
                 'url': source.url,
                 'created_at': source.created_at,
                 'updated_at': source.updated_at,
+                'last_successful_fetch_at': serialize_datetime(source.last_successful_fetch_at),
             }
             for source in sources
         ]
@@ -77,13 +98,18 @@ def update_sub(sub_id: int):
             if 'url' not in data or not data['url']:
                 return {'error': 'URL is required for remote subscription type'}, 400
             if cache_remote_sub(sub_id, data['url']):
+                source.type = data['type']
                 source.url = data['url']
+                mark_successful_fetch(session, source)
             else:
                 return {'error': 'Failed to fetch subscription from the provided URL'}, 400
         elif data['type'] == 'local':
             if 'content' not in data or not data['content']:
                 return {'error': 'Content is required for local subscription type'}, 400
             save_local_sub(sub_id, data['content'])
+            source.type = data['type']
+            source.url = None
+            source.last_successful_fetch_at = None
         else:
             return {'error': 'Unsupported subscription type'}, 400
 
@@ -134,6 +160,7 @@ def add_sub():
                 return {'error': 'URL is required for remote subscription type'}, 400
             if cache_remote_sub(new_source.id, data['url']):
                 new_source.url = data['url']
+                mark_successful_fetch(session, new_source)
             else:
                 return {'error': 'Failed to fetch subscription from the provided URL'}, 400
         elif data['type'] == 'local':
@@ -161,6 +188,7 @@ def refresh_sub_cache(sub_id: int):
             return {'error': 'Only remote subscriptions can be refreshed'}, 400
 
         if cache_remote_sub(sub_id, source.url):
+            mark_successful_fetch(session, source)
             return {'message': 'Subscription cache refreshed successfully'}, 200
         else:
             return {'error': 'Failed to refresh subscription cache'}, 502
