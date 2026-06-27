@@ -1,4 +1,5 @@
 export type SubType = "remote" | "local";
+export type FetchStatus = "success" | "failed" | null;
 
 export interface SubscriptionSource {
   id: number;
@@ -8,6 +9,7 @@ export interface SubscriptionSource {
   created_at?: string;
   updated_at?: string;
   last_successful_fetch_at: string | null;
+  last_fetch_status: FetchStatus;
 }
 
 export interface AddSubPayload {

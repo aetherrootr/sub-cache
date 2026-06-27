@@ -39,6 +39,7 @@ import {
   type SubscriptionSource,
   type AddSubPayload,
   type UpdateSubPayload,
+  type FetchStatus,
   type SubType,
   listSubs,
   addSub,
@@ -101,6 +102,18 @@ function formatFetchTime(value: string | null) {
     dateStyle: "medium",
     timeStyle: "medium",
   });
+}
+
+function getFetchStatusMeta(status: FetchStatus) {
+  if (status === "success") {
+    return { label: "Success", color: "success.main" };
+  }
+
+  if (status === "failed") {
+    return { label: "Failed", color: "error.main" };
+  }
+
+  return { label: "Unknown", color: "text.disabled" };
 }
 
 export default function App() {
@@ -345,9 +358,29 @@ export default function App() {
                     />
                   </Box>
 
-                  <Typography variant="caption" color="text.secondary">
-                    Last successful fetch: {formatFetchTime(r.last_successful_fetch_at)}
-                  </Typography>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.75,
+                      mt: 0.5,
+                    }}
+                  >
+                    <Box
+                      aria-label={`Last fetch status: ${getFetchStatusMeta(r.last_fetch_status).label}`}
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        bgcolor: getFetchStatusMeta(r.last_fetch_status).color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      Last fetch: {getFetchStatusMeta(r.last_fetch_status).label} · Last success:{" "}
+                      {formatFetchTime(r.last_successful_fetch_at)}
+                    </Typography>
+                  </Box>
                 </Box>
 
                 <Stack

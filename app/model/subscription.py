@@ -31,3 +31,4 @@ class SubscriptionSource(Base):
         onupdate=func.datetime("now"),
     )
     last_successful_fetch_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_fetch_status: Mapped[str | None] = mapped_column(String, nullable=True)

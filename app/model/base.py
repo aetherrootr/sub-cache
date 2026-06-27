@@ -31,6 +31,9 @@ class Database:
         if "last_successful_fetch_at" not in columns:
             with self.engine.begin() as conn:
                 conn.execute(text("ALTER TABLE subscription_sources ADD COLUMN last_successful_fetch_at DATETIME"))
+        if "last_fetch_status" not in columns:
+            with self.engine.begin() as conn:
+                conn.execute(text("ALTER TABLE subscription_sources ADD COLUMN last_fetch_status VARCHAR"))
 
     @contextmanager
     def session(self):

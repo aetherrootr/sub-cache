@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from threading import Thread
 
 from app.api.base import app
@@ -19,7 +19,10 @@ def verify_cache_directory(database):
             if not cache_file.exists():
                 if sub.type == "remote" and sub.url:
                     if cache_remote_sub(sub.id, sub.url):
-                        sub.last_successful_fetch_at = datetime.now(timezone.utc)
+                        sub.last_successful_fetch_at = datetime.now(UTC)
+                        sub.last_fetch_status = "success"
+                    else:
+                        sub.last_fetch_status = "failed"
                 elif sub.type == "local":
                     session.delete(sub)
 
